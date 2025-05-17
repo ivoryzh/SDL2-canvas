@@ -1,0 +1,14 @@
+{
+  "name": "CV_Experiment",
+  "description": "Simple cyclic voltammetry experiment",
+  "operations": [
+    {
+      "id": "cv_operation",
+      "type": "uo_sdl2_cv",
+      "params": {
+        "v_range": [-0.5, 0.5],
+        "freq": 0.1
+      }
+    }
+  ]
+}

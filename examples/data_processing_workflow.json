@@ -1,0 +1,37 @@
+{
+  "name": "Data_Processing_Workflow",
+  "description": "Workflow that performs CV, rolling mean, and peak detection",
+  "operations": [
+    {
+      "id": "cv_operation",
+      "type": "uo_sdl2_cv",
+      "params": {
+        "v_range": [-0.5, 0.5],
+        "freq": 0.1
+      }
+    },
+    {
+      "id": "rolling_mean",
+      "type": "uo_sdl2_rolling_mean",
+      "params": {
+        "csv_id": "$cv_operation.output.id",
+        "x_col": "time",
+        "y_col": "current",
+        "window_size": 20
+      }
+    },
+    {
+      "id": "peak_detection",
+      "type": "uo_sdl2_peak_detection",
+      "params": {
+        "csv_id": "$rolling_mean.output.id",
+        "x_col": "voltage",
+        "y_col": "current",
+        "height": 0.05,
+        "prominence": 0.02,
+        "distance": 10,
+        "threshold": 0.01
+      }
+    }
+  ]
+}
