@@ -7,7 +7,7 @@ import logging
 import uuid
 from typing import Dict, Any, Optional, Union, List
 import requests
-from config import SDL2_API_BASE_URL, TASK_POLL_INTERVAL_SECONDS, TASK_MAX_WAIT_SECONDS
+from src.utils.config import SDL2_API_BASE_URL, TASK_POLL_INTERVAL_SECONDS, TASK_MAX_WAIT_SECONDS
 
 # Configure logging
 logging.basicConfig(
@@ -75,56 +75,54 @@ class SDL2Client:
             logger.error(f"Error getting task status: {str(e)}")
             raise
     
-    def wait_for_task_completion(
-        self, 
-        task_id: Union[uuid.UUID, str], 
-        check_interval: int = TASK_POLL_INTERVAL_SECONDS,
-        max_wait_seconds: int = TASK_MAX_WAIT_SECONDS
-    ) -> Dict[str, Any]:
+    def wait_for_task_completion(self, task_id: str, timeout: Optional[int] = None) -> Dict[str, Any]:
         """
-        Poll the API until the task is completed or timeout is reached.
+        Wait for a task to complete.
         
         Args:
-            task_id: The ID of the task to check
-            check_interval: How often to check the status in seconds
-            max_wait_seconds: Maximum time to wait in seconds
-            
+            task_id: ID of the task to wait for
+            timeout: Maximum time to wait in seconds (defaults to TASK_MAX_WAIT_SECONDS)
+        
         Returns:
-            The completed task data
-            
-        Raises:
-            TimeoutError: If the task doesn't complete within max_wait_seconds
-            Exception: If the task fails with an error status
+            Completed task data
         """
-        logger.info(f"Waiting for task {task_id} to complete...")
+        if timeout is None:
+            timeout = TASK_MAX_WAIT_SECONDS
         
         start_time = time.time()
+        poll_count = 0
         
         while True:
-            # Check if we've exceeded the maximum wait time
+            # Check if we've exceeded the timeout
             elapsed_time = time.time() - start_time
-            if elapsed_time > max_wait_seconds:
-                raise TimeoutError(f"Task {task_id} did not complete within {max_wait_seconds} seconds")
+            if elapsed_time > timeout:
+                logger.error(f"Timeout waiting for task {task_id} to complete after {elapsed_time:.2f} seconds")
+                raise TimeoutError(f"Task {task_id} did not complete within {timeout} seconds")
             
-            task_data = self.get_task_status(task_id)
-            status = task_data["status"]
+            # Get task status
+            try:
+                task_data = self.get_task(task_id)
+                status = task_data.get("status")
+                
+                poll_count += 1
+                if poll_count % 10 == 0:  # Log every 10th poll to reduce noise
+                    logger.info(f"Task {task_id} status: {status} (elapsed: {elapsed_time:.2f}s)")
+                
+                # Check if task is complete
+                if status == "completed":
+                    logger.info(f"Task {task_id} completed successfully after {elapsed_time:.2f} seconds")
+                    return task_data
+                elif status == "failed":
+                    logger.error(f"Task {task_id} failed after {elapsed_time:.2f} seconds")
+                    raise Exception(f"Task {task_id} failed: {task_data.get('error', 'Unknown error')}")
+                
+                # Wait before polling again
+                time.sleep(TASK_POLL_INTERVAL_SECONDS)
             
-            logger.debug(f"Current status: {status}")
-            
-            if status == 1:  # COMPLETED
-                logger.info(f"Task {task_id} completed successfully!")
-                return task_data
-            elif status == 3:  # ERROR
-                error_msg = f"Task {task_id} failed with error status"
-                logger.error(error_msg)
-                raise Exception(error_msg)
-            elif status == 0 or status == 2:  # PENDING or RUNNING
-                # Wait before checking again
-                time.sleep(check_interval)
-            else:
-                error_msg = f"Unknown task status: {status}"
-                logger.error(error_msg)
-                raise Exception(error_msg)
+            except requests.RequestException as e:
+                logger.error(f"Error checking task status: {str(e)}")
+                # Continue polling despite temporary network errors
+                time.sleep(TASK_POLL_INTERVAL_SECONDS)
     
     def get_csv_data(self, csv_id: Union[uuid.UUID, str]) -> Dict[str, Any]:
         """
