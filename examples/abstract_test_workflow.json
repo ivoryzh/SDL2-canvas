@@ -1,0 +1,30 @@
+{
+  "name": "Abstract_Workflow",
+  "description": "Workflow for ivoryOS test",
+  "operations": [
+    {
+      "id": "dose_solid",
+      "type": "sdl.dose_solid",
+      "params": {
+        "amount_in_mg": 5
+      }
+    },
+    {
+      "id": "dose_solvent",
+      "type": "sdl.dose_solvent",
+      "params": {
+        "solvent_name": "Methanol",
+        "amount_in_ml": 5,
+        "rate_ml_per_minute": 1
+      }
+    },
+    {
+      "id": "equilibrate",
+      "type": "sdl.equilibrate",
+      "params": {
+        "temp": 30,
+        "duration": 20
+      }
+    }
+  ]
+}
